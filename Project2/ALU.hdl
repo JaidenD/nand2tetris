@@ -1,0 +1,41 @@
+CHIP ALU {
+    IN  
+        x[16], y[16],  // 16-bit inputs        
+        zx, // zero the x input?
+        nx, // negate the x input?
+        zy, // zero the y input?
+        ny, // negate the y input?
+        f,  // compute (out = x + y) or (out = x & y)?
+        no; // negate the out output?
+    OUT 
+        out[16], // 16-bit output
+        zr,      // if (out == 0) equals 1, else 0
+        ng;      // if (out < 0)  equals 1, else 0
+
+    PARTS:
+    // Zero implementation
+    Mux16(a=x , b=false , sel=zx , out=newx );
+    Mux16(a=y , b=false , sel=zy , out=newy );
+
+    // Negation implementation
+    Not16(in=newx , out=notx );
+    Not16(in=newy , out=noty );
+    Mux16(a=newx , b=notx , sel=nx , out=newx1 );
+    Mux16(a=newy , b=noty , sel=ny , out=newy1 );
+
+    // Chose between adding and anding
+    // (there might be a less wasteful way to do this -- currently computing both and only using one)
+    Add16(a = newx1, b = newy1, out = addxy);
+    And16(a= newx1, b= newy1 , out= andxy);
+    Mux16(a=andxy , b=addxy , sel=f, out=out1);
+
+    // Output negation implementation
+    Not16(in=out1 , out=nout1);
+
+    // zr ng pin implementation
+    Mux16(a=out1 , b=nout1 , sel=no , out=out, out[15]=ng, out[0..7]=msb, out[8..15]=lsb );
+    Or8Way(in=lsb , out=lsb1 );
+    Or8Way(in=msb , out=msb1 );
+    Or(a=lsb1 , b=msb1 , out=zr );
+
+}
